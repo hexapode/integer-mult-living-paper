@@ -1,0 +1,58 @@
+name: Refresh and publish living paper
+on:
+  schedule:
+    - cron: '7,37 * * * *'
+  workflow_dispatch:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: living-paper-publication
+  cancel-in-progress: false
+jobs:
+  publish:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v6
+      - name: Install Pandoc
+        run: sudo apt-get update -qq && sudo apt-get install -y pandoc
+      - name: Test isolation, coverage and reproducibility
+        run: python3 -m unittest discover -p 'test_*.py'
+      - name: Fetch complete upstream corpus and detect changes
+        id: prepare
+        run: python3 publish.py prepare
+      - name: Build paper and check every contribution survives conversion
+        if: steps.prepare.outputs.publish == 'true'
+        run: python3 build.py build
+      - name: Build accessible static reader and frozen release assets
+        if: steps.prepare.outputs.publish == 'true'
+        run: python3 publish.py site
+      - uses: actions/configure-pages@v5
+        if: steps.prepare.outputs.publish == 'true'
+      - uses: actions/upload-pages-artifact@v4
+        if: steps.prepare.outputs.publish == 'true'
+        with:
+          path: _site
+      - name: Deploy latest paper
+        id: deployment
+        if: steps.prepare.outputs.publish == 'true'
+        uses: actions/deploy-pages@v4
+      - name: Archive the successfully published edition
+        if: steps.prepare.outputs.publish == 'true'
+        env:
+          EDITION_TAG: ${{ steps.prepare.outputs.tag }}
+        run: >-
+          gh release create "$EDITION_TAG"
+          release/paper.tex release/paper.md release/overview.tex
+          release/manifest.json release/coverage.json release/snapshot.json.gz
+          --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA"
+          --title "Living paper $EDITION_TAG" --notes-file release/notes.md
