@@ -358,6 +358,11 @@ contributions that subsequently leave that corpus.
              '--top-level-division=chapter', '--toc', '--number-sections', '--wrap=auto',
              '--include-in-header', str(ROOT/'web/latex-header.tex'),
              '-o', str(args.output / f'{stem}.tex')], input=json.dumps(document), text=True, check=True)
+    # Retain raw control bytes in the snapshot, but make them visible and printable in TeX.
+    for stem in ['paper', 'overview']:
+        target = args.output / f'{stem}.tex'
+        target.write_text(re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f]',
+            lambda match: '[control U+%04X]' % ord(match.group()), target.read_text()))
     labels = set(map(int, re.findall(r'\\label\{pr-(\d+)\}', (args.output/'paper.tex').read_text())))
     if labels != {p['number'] for p in prs}:
         raise ValueError('LaTeX contribution labels do not match source coverage')
