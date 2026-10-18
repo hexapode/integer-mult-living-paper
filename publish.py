@@ -13,6 +13,8 @@ import shutil
 import subprocess
 from urllib.parse import urlsplit
 from build import digest
+from build_pdf import validate_pdf
+from progress import progress_data, render_progress
 
 ROOT=Path(__file__).resolve().parent
 PUBLIC_REPO='hexapode/integer-mult-living-paper'
@@ -83,14 +85,19 @@ def shell(title,body,prefix='',article=False,math=False):
     scripts=''
     if math:
         scripts='''<script>window.MathJax={loader:{load:['ui/safe']},tex:{inlineMath:[['\\\\(','\\\\)']],displayMath:[['\\\\[','\\\\]']]}};</script><script defer src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-chtml.js"></script>'''
-    return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{html.escape(title)} · Living paper</title><meta name="description" content="A versioned research paper on integer multiplication, with a complete contribution record."><link rel="stylesheet" href="{prefix}style.css">{scripts}</head><body><header><a class="brand" href="{prefix}index.html">INTEGER MULTIPLICATION / LIVING PAPER</a><nav><a href="{prefix}overview.html">Read the paper</a><a href="{prefix}index.html#contributions">Contributions</a><a href="https://github.com/{PUBLIC_REPO}/releases">Editions</a></nav></header><main class="{'article' if article else ''}">{body}</main><footer>A living research draft. GitHub contributors retain credit; inclusion does not imply endorsement. Claims retain their stated assumptions.<br><a href="https://github.com/{PUBLIC_REPO}">Publication source &amp; update workflow</a> · <a href="https://github.com/CrocSwap/integer-mult-bounds">Research repository</a></footer></body></html>'''
+    return f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{html.escape(title)} · Living paper</title><meta name="description" content="A versioned research paper on integer multiplication, with a complete contribution record."><link rel="stylesheet" href="{prefix}style.css">{scripts}</head><body><header><a class="brand" href="{prefix}index.html">INTEGER MULTIPLICATION / LIVING PAPER</a><nav><a href="{prefix}overview.html">Read the paper</a><a href="{prefix}paper.pdf">PDF</a><a href="{prefix}index.html#progress">Progress</a><a href="{prefix}index.html#contributions">Contributions</a><a href="https://github.com/{PUBLIC_REPO}/releases">Editions</a></nav></header><main class="{'article' if article else ''}">{body}</main><footer>A living research draft. GitHub contributors retain credit; inclusion does not imply endorsement. Claims retain their stated assumptions.<br><a href="https://github.com/{PUBLIC_REPO}">Publication source &amp; update workflow</a> · <a href="https://github.com/CrocSwap/integer-mult-bounds">Research repository</a></footer></body></html>'''
 
 
 def build_site():
     source=ROOT/'output'; dest=ROOT/'_site';release=ROOT/'release'
     dest.mkdir(exist_ok=True);release.mkdir(exist_ok=True)
     (dest/'contributions').mkdir(exist_ok=True)
+    pdf_metadata=validate_pdf(source)
     snap=json.loads((ROOT/'data/latest.json').read_text())
+    progress=progress_data(snap)
+    progress_html=render_progress(progress)
+    (dest/'progress.json').write_text(json.dumps(progress,indent=2)+'\n')
+    (release/'progress.json').write_text(json.dumps(progress,indent=2)+'\n')
     manifest=json.loads((source/'manifest.json').read_text())
     coverage=json.loads((source/'coverage.json').read_text())
     prs={p['number']:p for p in snap['prs']}
@@ -115,21 +122,21 @@ def build_site():
     for n,body in parser.pages.items():
         body=re.sub(r'href="#pr-(\d+)"',r'href="pr-\1.html#pr-\1"',body)
         (dest/'contributions'/f'pr-{n}.html').write_text(shell(f'PR {n}: '+prs[n]['title'],body,'../',True,True))
-    (dest/'overview.html').write_text(shell('The current argument',overview,article=True,math=True))
+    overview='<div class="actions"><a class="button primary" href="paper.pdf" download>Download the complete PDF</a><a class="button" href="paper.pdf">View PDF in browser</a></div>'+overview
+    (dest/'overview.html').write_text(shell('The current argument',overview+progress_html,article=True,math=True))
     (dest/'complete.html').write_text(shell('Complete paper',overview+all_html,article=True,math=True))
     index=[dict(p,title=prs[p['pr']]['title']) for p in sorted(coverage,key=lambda p:p['pr'],reverse=True)]
     (dest/'contributions.json').write_text(json.dumps(index,ensure_ascii=False))
     credited=len(manifest['authors']);full=len(coverage);edited=sum(p['explanation']=='editorial-current' for p in coverage)
     edition=manifest.get('edition_id',manifest['snapshot_sha256'][:16])
-    body=f'''<div class="eyebrow">A research programme, continuously documented</div><h1>Integer multiplication,<br>in motion.</h1><p class="intro">A living account of the mathematics, the evidence, and the people moving the frontier.</p><p class="muted">Source collection completed {html.escape(snap['finished_at'])} · Edition {edition}<br>Checks for changes every 30 minutes. GitHub scheduling can be delayed.</p><div class="actions"><a class="button primary" href="overview.html">Read the current account →</a><a class="button" href="paper.tex" download>Download complete LaTeX</a><a class="button" href="complete.html">Read all contributions</a></div><div class="stats"><div class="stat"><strong>{full:,}</strong><span>merged and open contributions</span></div><div class="stat"><strong>{credited}</strong><span>credited GitHub contributors</span></div><div class="stat"><strong>{edited}</strong><span>current editorial explanations</span></div></div><h2>One programme. Different kinds of evidence.</h2><p>The selected repository record reports conditional κ = <strong>{html.escape(selected.get('decimal','unspecified'))}</strong>. Larger numbers in submissions may represent candidates or partial calculations. Selection, publication and mathematical verification are separate events.</p><div class="note"><strong>A transparent draft.</strong> Every included PR has its submitted explanation. Deeper editorial explanations are counted separately. The automated refresh imports evidence and updates the manuscript; it does not independently prove or review results.</div><section id="contributions"><h2>The contribution record</h2><p>Explore constructions, corrections, independent checks and negative results. Each page preserves credit and the exact submitted revision.</p><div class="controls"><input id="query" type="search" aria-label="Search contributions" placeholder="Search by topic, contributor or PR number"><select id="state" aria-label="Publication status"><option value="all">Merged + open</option><option value="merged">Merged</option><option value="open">Open</option></select></div><p id="count" class="muted" aria-live="polite">Loading contribution index…</p><div id="results"></div><div class="paging"><button id="previous" disabled>Previous</button><button id="next">Next</button></div><noscript><p>JavaScript is needed only for search. <a href="complete.html">Read the complete contribution record</a>.</p></noscript></section><h2>Citable editions, retained evidence</h2><p>Every published edition has an archived source snapshot, manuscript and build manifest. Earlier accounts remain available as the programme changes.</p><p><a href="https://github.com/{PUBLIC_REPO}/releases">Browse archived editions →</a> · <a href="manifest.json">Inspect this edition's manifest</a></p><script defer src="search.js"></script>'''
+    body=f'''<div class="eyebrow">A research programme, continuously documented</div><h1>Integer multiplication,<br>in motion.</h1><p class="intro">A living account of the mathematics, the evidence, and the people moving the frontier.</p><p class="muted">Source collection completed {html.escape(snap['finished_at'])} · Edition {edition}<br>Checks for changes every 30 minutes. GitHub scheduling can be delayed.</p><div class="actions"><a class="button primary" href="overview.html">Read the current account →</a><a class="button" href="paper.pdf" download>Download PDF · {pdf_metadata["pages"]:,} pages</a><a class="button" href="paper.tex" download>LaTeX source</a><a class="button" href="complete.html">Read all contributions</a></div><div class="stats"><div class="stat"><strong>{full:,}</strong><span>merged and open contributions</span></div><div class="stat"><strong>{credited}</strong><span>credited GitHub contributors</span></div><div class="stat"><strong>{edited}</strong><span>current editorial explanations</span></div></div><h2>One programme. Different kinds of evidence.</h2><p>The selected repository record reports conditional κ = <strong>{html.escape(selected.get('decimal','unspecified'))}</strong>. Larger numbers in submissions may represent candidates or partial calculations. Selection, publication and mathematical verification are separate events.</p><div class="note"><strong>A transparent draft.</strong> Every included PR has its submitted explanation. Deeper editorial explanations are counted separately. The automated refresh imports evidence and updates the manuscript; it does not independently prove or review results.</div>{progress_html}<section id="contributions"><h2>The contribution record</h2><p>Explore constructions, corrections, independent checks and negative results. Each page preserves credit and the exact submitted revision.</p><div class="controls"><input id="query" type="search" aria-label="Search contributions" placeholder="Search by topic, contributor or PR number"><select id="state" aria-label="Publication status"><option value="all">Merged + open</option><option value="merged">Merged</option><option value="open">Open</option></select></div><p id="count" class="muted" aria-live="polite">Loading contribution index…</p><div id="results"></div><div class="paging"><button id="previous" disabled>Previous</button><button id="next">Next</button></div><noscript><p>JavaScript is needed only for search. <a href="complete.html">Read the complete contribution record</a>.</p></noscript></section><h2>Citable editions, retained evidence</h2><p>Every published edition has an archived source snapshot, manuscript and build manifest. Earlier accounts remain available as the programme changes.</p><p><a href="https://github.com/{PUBLIC_REPO}/releases">Browse archived editions →</a> · <a href="manifest.json">Inspect this edition's manifest</a></p><script defer src="search.js"></script>'''
     (dest/'index.html').write_text(shell('Integer multiplication, in motion',body))
     for name in ('style.css','search.js'):shutil.copyfile(ROOT/'web'/name,dest/name)
-    for name in ('paper.tex','paper.md','overview.tex','manifest.json','coverage.json'):
+    for name in ('paper.tex','paper.md','overview.tex','manifest.json','coverage.json','paper-pdf-manifest.json'):
         shutil.copyfile(source/name,dest/name)
         shutil.copyfile(source/name,release/name)
-    for pdf in ('paper.pdf','overview.pdf'):
-        if (source/pdf).exists():
-            shutil.copyfile(source/pdf,dest/pdf);shutil.copyfile(source/pdf,release/pdf)
+    shutil.copyfile(source/'paper.pdf',dest/'paper.pdf')
+    shutil.copyfile(source/'paper.pdf',release/'paper.pdf')
     with gzip.GzipFile(filename=str(release/'snapshot.json.gz'),mode='wb',mtime=0) as stream:
         stream.write((ROOT/'data/latest.json').read_bytes())
     (dest/'.nojekyll').write_text('')
@@ -141,9 +148,10 @@ def prepare():
     subprocess.run(['python3',str(ROOT/'build.py'),'refresh'],check=True)
     snap=json.loads((ROOT/'data/latest.json').read_text())
     inputs={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(ROOT.glob('*.py'))}
+    inputs['frontier-seed.json']=hashlib.sha256((ROOT/'frontier-seed.json').read_bytes()).hexdigest()
     inputs.update({str(p.relative_to(ROOT)):hashlib.sha256(p.read_bytes()).hexdigest()
                    for folder in ['editorial','web','.github'] for p in sorted((ROOT/folder).rglob('*')) if p.is_file()})
-    key=digest({'snapshot':{k:snap[k] for k in ['repo','main_commit','prs','sources','contributors']},'inputs':inputs})[:16]
+    key=digest({'snapshot':{k:snap[k] for k in ['repo','main_commit','prs','sources','contributors','frontier_history']},'inputs':inputs})[:16]
     tag='edition-'+key
     exists=subprocess.run(['gh','api',f'repos/{PUBLIC_REPO}/releases/tags/{tag}'],capture_output=True,text=True)
     if exists.returncode and '404' not in exists.stderr:raise RuntimeError(exists.stderr)

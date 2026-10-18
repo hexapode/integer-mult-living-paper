@@ -15,7 +15,7 @@ concurrency:
 jobs:
   publish:
     runs-on: ubuntu-24.04
-    timeout-minutes: 25
+    timeout-minutes: 35
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -23,8 +23,8 @@ jobs:
       GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v6
-      - name: Install Pandoc
-        run: sudo apt-get update -qq && sudo apt-get install -y pandoc
+      - name: Install Pandoc and the PDF toolchain
+        run: sudo apt-get update -qq && sudo apt-get install -y pandoc latexmk texlive-xetex texlive-latex-extra fonts-stix fonts-dejavu-core poppler-utils
       - name: Test isolation, coverage and reproducibility
         run: python3 -m unittest discover -p 'test_*.py'
       - name: Fetch complete upstream corpus and detect changes
@@ -33,6 +33,9 @@ jobs:
       - name: Build paper and check every contribution survives conversion
         if: steps.prepare.outputs.publish == 'true'
         run: python3 build.py build
+      - name: Compile and verify this edition's PDF
+        if: steps.prepare.outputs.publish == 'true'
+        run: python3 build_pdf.py
       - name: Build accessible static reader and frozen release assets
         if: steps.prepare.outputs.publish == 'true'
         run: python3 publish.py site
@@ -52,7 +55,8 @@ jobs:
           EDITION_TAG: ${{ steps.prepare.outputs.tag }}
         run: >-
           gh release create "$EDITION_TAG"
-          release/paper.tex release/paper.md release/overview.tex
+          release/paper.pdf release/paper-pdf-manifest.json
+          release/paper.tex release/paper.md release/overview.tex release/progress.json
           release/manifest.json release/coverage.json release/snapshot.json.gz
           --repo "$GITHUB_REPOSITORY" --target "$GITHUB_SHA"
           --title "Living paper $EDITION_TAG" --notes-file release/notes.md

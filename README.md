@@ -127,3 +127,29 @@ To force a check on GitHub:
 ```sh
 gh workflow run publish.yml --repo hexapode/integer-mult-living-paper
 ```
+
+### Downloadable PDF and progress graphs
+
+Each changed edition now compiles its **complete paper PDF** with XeLaTeX before
+publication. The homepage and paper reader link to `paper.pdf`, and the same PDF is
+attached to the edition's GitHub Release. A source/PDF checksum receipt prevents
+an older PDF from being paired with a new manuscript. If compilation fails, the
+previous successful website remains online; the Action reports the failure.
+The PDF is a very long source-derived research draft, not a polished monograph.
+
+The Progress section has two source-bound graphs:
+
+- **Selected conditional κ:** successive values from the main branch history of
+  `certificates/selected-result.json`, with clickable source revisions. This starts
+  at that file's first record and does not infer bounds from PR headlines.
+- **Contribution activity:** daily cumulative submissions and merges within the
+  current merged/open corpus. It measures activity, not scientific correctness.
+
+`progress.json` exposes the plotted data; the archived source snapshot contains
+its selected-result history. `frontier-seed.json` caches immutable, previously
+retrieved commit records. Each refresh checks the pinned main branch commit list
+and fetches any records absent from that seed.
+
+For PDF builds outside GitHub, install `latexmk`, XeLaTeX, the standard LaTeX extra
+packages, STIX/DejaVu fonts, and `pdfinfo`, then run `python3 build_pdf.py` between
+`build.py build` and `publish.py site`.

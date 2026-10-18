@@ -9,6 +9,7 @@ import json
 import re
 import subprocess
 from pathlib import Path
+from progress import fetch_history
 
 ROOT = Path(__file__).resolve().parent
 REPO = 'CrocSwap/integer-mult-bounds'
@@ -74,6 +75,7 @@ def refresh(args):
         sources[review] = api(f'repos/{repo}/contents/{review}?ref={commit}', raw=True)
     snapshot = {'schema': 1, 'repo': repo, 'started_at': started, 'finished_at': now(),
                 'main_commit': commit, 'prs': prs, 'sources': sources,
+                'frontier_history': fetch_history(repo, commit, api),
                 'contributors': [{'login': p['login'], 'type': p['type']} for p in contributors],
                 'collection': 'Imported REST pages' if args.import_pages else 'Live paginated REST pull requests'}
     args.data.mkdir(parents=True, exist_ok=True)

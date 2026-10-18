@@ -8,7 +8,7 @@
 \DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\},breaklines=true,breakanywhere=true,fontsize=\small}
 \ifPDFTeX\else
 \IfFontExistsTF{STIXGeneral}{\setmainfont{STIXGeneral}}{}
-\IfFontExistsTF{Arial Unicode MS}{\setmonofont{Arial Unicode MS}}{}
+\IfFontExistsTF{DejaVu Sans Mono}{\setmonofont{DejaVu Sans Mono}}{\IfFontExistsTF{Arial Unicode MS}{\setmonofont{Arial Unicode MS}}{}}
 \fi
 
 % Support source symbols that are absent from the text font.
