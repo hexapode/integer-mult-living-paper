@@ -57,14 +57,14 @@ def progress_data(snapshot):
             'activity_scope':'Cumulative creations and merges of PRs in the current merged/open corpus; not historical queue size.'}
 
 
-def chart(series,start,end,ymax,label,tick_format):
+def chart(series,start,end,ymax,label,tick_format,ymin=0):
     left,right,top,bottom=91,785,28,265
     width=right-left;height=bottom-top;span=max(1,(end-start).total_seconds())
     x=lambda when:left+(instant(when)-start).total_seconds()/span*width
-    y=lambda value:bottom-float(value)/ymax*height
+    y=lambda value:bottom-(float(value)-ymin)/(ymax-ymin)*height
     out=[f'<svg class="progress-chart" viewBox="0 0 820 320" role="img" aria-label="{html.escape(label,quote=True)}"><title>{html.escape(label)}</title>']
     for i in range(5):
-        v=ymax*i/4;py=y(v)
+        v=ymin+(ymax-ymin)*i/4;py=y(v)
         out.append(f'<line x1="{left}" x2="{right}" y1="{py:.2f}" y2="{py:.2f}" stroke="#d9ded4"/><text x="{left-12}" y="{py+5:.2f}" text-anchor="end">{tick_format(v)}</text>')
     for i in range(5):
         time=start+(end-start)*i/4;px=left+width*i/4
@@ -88,8 +88,25 @@ def render_progress(data):
     out=['<section id="progress"><h2>Progress over time</h2><p>Follow the selected mathematical checkpoints and the activity around them. A merged contribution does not, by itself, establish a stronger bound.</p>']
     if frontier:
         points=[(p['time'],float(Fraction(p['kappa'])),f"{p['time']}: selected κ = {p['decimal']}",f"https://github.com/{repo}/blob/{p['sha']}/certificates/selected-result.json") for p in frontier]
+        recent=frontier[-8:]
+        baseline=Fraction(recent[0]['kappa'])
+        # Subtract exact rationals before converting to plotting coordinates: small
+        # advances must survive even when absolute float values are identical.
+        gains=[float(Fraction(p['kappa'])-baseline) for p in recent]
+        recent_points=[(p['time'],gain,f"{p['time']}: κ = {p['decimal']}; gain from baseline {gain:+.8e}",f"https://github.com/{repo}/blob/{p['sha']}/certificates/selected-result.json") for p,gain in zip(recent,gains)]
+        age=max(0,(end-instant(frontier[-1]['time'])).total_seconds()/86400)
+        out.append('<h3>Selected conditional κ · recent gains</h3>')
+        out.append(f'<p class="muted">Latest selected change: {html.escape(frontier[-1]["time"])} · {age:.1f} days before this snapshot. No later selected change is recorded.</p>')
+        if len(recent)>1:
+            lo=min(0,min(gains));hi=max(0,max(gains));padding=(hi-lo)*0.08
+            last_gain=Fraction(recent[-1]['kappa'])-Fraction(recent[-2]['kappa'])
+            out.append(f'<p>Latest step: <strong>Δκ = {float(last_gain):+.8e}</strong></p><p class="muted">Last {len(recent)} changed checkpoints. Vertical axis: gain in κ relative to {html.escape(recent[0]["decimal"])}. The scale adapts to these checkpoints, so small advances remain visible. Time ends at the last change; the full timeline below includes the subsequent plateau. Dates are UTC.</p>')
+            out.extend(['<div class="chart-scroll">',chart([('Gain in κ','#215f51',recent_points)],instant(recent[0]['time']),instant(recent[-1]['time']),hi+padding,'Recent selected kappa gains relative to baseline',lambda v:f'{v:.2e}',ymin=lo-padding),'</div>'])
+        else:
+            out.append('<p>One selected checkpoint is available. A gain chart will appear after the next change.</p>')
+        out.append('<details><summary>Full history · absolute κ and time since last change</summary>')
         out+=['<h3>Selected conditional κ</h3><p class="muted">Higher means a larger exponent saving, not a measured runtime improvement. Begins at the first selected-result record. Click a checkpoint to inspect its source; dates are UTC.</p><div class="chart-scroll">',
-              chart([('Selected κ','#215f51',points)],instant(frontier[0]['time']),end,max(p[1] for p in points)*1.1,'Selected conditional kappa over time',lambda v:f'{v:.4f}'),'</div>']
+              chart([('Selected κ','#215f51',points)],instant(frontier[0]['time']),end,max(p[1] for p in points)*1.1,'Selected conditional kappa over time',lambda v:f'{v:.4f}'),'</div></details>']
         rows=''.join(f'<tr><td>{html.escape(p["time"][:10])}</td><td>{html.escape(p["decimal"])}</td><td><a href="https://github.com/{repo}/blob/{p["sha"]}/certificates/selected-result.json">{p["sha"][:8]}</a></td></tr>' for p in frontier)
         out.append('<details><summary>Checkpoint values and source revisions</summary><table><thead><tr><th>Date (UTC)</th><th>Selected κ</th><th>Source</th></tr></thead><tbody>'+rows+'</tbody></table></details>')
     else:

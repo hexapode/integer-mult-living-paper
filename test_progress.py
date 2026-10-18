@@ -24,3 +24,19 @@ class ProgressTests(unittest.TestCase):
     def test_history_cannot_disagree_with_selected_record(self):
         snap=self.snapshot();snap['frontier_history'][-1]['kappa']='3/1000'
         with self.assertRaisesRegex(ValueError,'pinned selected'):progress_data(snap)
+
+    def test_tiny_gains_survive_float_rounding_and_retractions(self):
+        snap=self.snapshot()
+        snap['frontier_history'][0]['kappa']='1/1000'
+        snap['frontier_history'][1]['kappa']='100000000000000000001/100000000000000000000000'
+        snap['frontier_history']=snap['frontier_history'][:2]
+        snap['sources']['certificates/selected-result.json']=json.dumps({'kappa':snap['frontier_history'][-1]['kappa']})
+        page=render_progress(progress_data(snap))
+        self.assertIn('+1.00000000e-23',page)
+        self.assertIn('Full history',page)
+        self.assertNotIn('NaN',page)
+        snap['frontier_history'].reverse()
+        snap['frontier_history'][0]['time']='2026-10-01T12:00:00Z'
+        snap['frontier_history'][1]['time']='2026-10-02T12:00:00Z'
+        snap['sources']['certificates/selected-result.json']=json.dumps({'kappa':'1/1000'})
+        self.assertIn('-1.00000000e-23',render_progress(progress_data(snap)))
