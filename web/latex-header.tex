@@ -1,0 +1,12 @@
+% Common MathJax aliases in contributor mathematics.
+\providecommand{\gt}{>}
+\providecommand{\lt}{<}
+% Avoid clipping long command lines in submitted code blocks.
+\usepackage{fvextra}
+\fvset{breaklines=true,breakanywhere=true,fontsize=\small}
+\RecustomVerbatimEnvironment{verbatim}{Verbatim}{breaklines=true,breakanywhere=true,fontsize=\small}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\},breaklines=true,breakanywhere=true,fontsize=\small}
+\ifPDFTeX\else
+\IfFontExistsTF{STIX Two Text}{\setmainfont{STIX Two Text}}{}
+\IfFontExistsTF{Arial Unicode MS}{\setmonofont{Arial Unicode MS}}{}
+\fi

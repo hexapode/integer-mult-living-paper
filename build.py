@@ -356,6 +356,7 @@ contributions that subsequently leave that corpus.
     for stem, document in [('overview', overview), ('paper', complete)]:
         subprocess.run(['pandoc', '--from=json', '--to=latex', '--standalone',
              '--top-level-division=chapter', '--toc', '--number-sections', '--wrap=auto',
+             '--include-in-header', str(ROOT/'web/latex-header.tex'),
              '-o', str(args.output / f'{stem}.tex')], input=json.dumps(document), text=True, check=True)
     labels = set(map(int, re.findall(r'\\label\{pr-(\d+)\}', (args.output/'paper.tex').read_text())))
     if labels != {p['number'] for p in prs}:
