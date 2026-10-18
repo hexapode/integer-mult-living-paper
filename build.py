@@ -288,7 +288,7 @@ contributions that subsequently leave that corpus.
             chapter += f'\n## PR {p["number"]}: {text(p["title"])} {{#pr-{p["number"]}}}\n\n'
             chapter += f'**Contributor:** {text(p["author"])}. **Publication status:** {p["state"]}. '
             chapter += f'[Original contribution]({p["url"]}).\n\n'
-            chapter += f'Created {p["created_at"]}; last updated {p["updated_at"]}. '
+            chapter += f'Created {p["created_at"]}.  \nUpdated {p["updated_at"]}.  \n'
             chapter += f'Head revision `{p["head"]}`.\n\n'
             status = 'source-only'
             if note.exists():

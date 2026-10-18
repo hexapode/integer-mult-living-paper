@@ -7,6 +7,19 @@
 \RecustomVerbatimEnvironment{verbatim}{Verbatim}{breaklines=true,breakanywhere=true,fontsize=\small}
 \DefineVerbatimEnvironment{Highlighting}{Verbatim}{commandchars=\\\{\},breaklines=true,breakanywhere=true,fontsize=\small}
 \ifPDFTeX\else
-\IfFontExistsTF{STIX Two Text}{\setmainfont{STIX Two Text}}{}
+\IfFontExistsTF{STIXGeneral}{\setmainfont{STIXGeneral}}{}
 \IfFontExistsTF{Arial Unicode MS}{\setmonofont{Arial Unicode MS}}{}
 \fi
+
+% Support source symbols that are absent from the text font.
+\usepackage{newunicodechar}
+\newunicodechar{ᵀ}{\ensuremath{{}^{T}}}
+\newunicodechar{ᵢ}{\ensuremath{{}_{i}}}
+\newunicodechar{ᵣ}{\ensuremath{{}_{r}}}
+\newunicodechar{ₗ}{\ensuremath{{}_{l}}}
+\newunicodechar{🤖}{[AI]}
+\newunicodechar{🚀}{[rocket]}
+\newunicodechar{✈}{[airplane]}
+\newunicodechar{️}{}
+\newunicodechar{﻿}{}
+\sloppy
